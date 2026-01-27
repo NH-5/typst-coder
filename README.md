@@ -202,14 +202,4 @@ print(generated)
 
 ## 许可证
 
-本项目基于 Apache 2.0 许可证。数据集中的 Typst 代码遵循各自的原始许可证。
-
-## 致谢
-
-- [Qwen](https://github.com/QwenLM/Qwen) 团队提供基础模型
-- 所有 Typst 开源项目贡献者提供训练数据
-- Hugging Face 生态系统提供训练框架
-
-## 联系方式
-
-如有问题或建议，请提交 GitHub Issue 或联系项目维护者。
+本项目基于 MIT 许可证。数据集中的 Typst 代码遵循各自的原始许可证。
