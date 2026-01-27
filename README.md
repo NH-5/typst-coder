@@ -200,6 +200,53 @@ print(generated)
 3. **编辑器集成**：开发 VSCode 插件
 4. **模型量化**：量化模型以便在 CPU 上运行
 
+## 服务器训练
+
+对于在远程服务器上进行训练的场景，项目提供了完整的自动化脚本。
+
+### 准备工作
+1. 将项目代码上传到服务器
+2. 确保服务器已安装 Miniconda/Anaconda
+3. 准备训练数据和测试数据的下载 URL
+
+### 配置训练
+编辑 `server_train.sh` 脚本，设置以下变量：
+```bash
+TRAIN_URL=""  # 训练数据 URL (必需)
+TEST_URL=""   # 测试数据 URL (必需)
+MODEL_ID="Qwen/Qwen3-0.6B"  # Hugging Face 模型 ID
+OUTPUT_DIR="./output"        # 输出目录
+# 其他超参数根据需要调整
+```
+
+### 运行训练
+```bash
+# 使脚本可执行
+chmod +x server_train.sh download_resources.py
+
+# 运行训练
+./server_train.sh
+```
+
+### 脚本功能
+1. **环境配置**：自动创建/激活 Conda 环境
+2. **依赖安装**：安装所有 Python 包依赖
+3. **资源下载**：
+   - 从 Hugging Face 下载 Qwen3-0.6B 模型
+   - 从指定 URL 下载训练和测试数据
+4. **训练执行**：使用配置的超参数进行模型微调
+
+### 监控训练
+- 训练日志保存在 `output/logs/` 目录
+- 检查点保存在 `output/checkpoint-*/` 目录
+- 训练过程中会显示损失曲线和学习率变化
+
+### 故障排除
+- 如果 conda 未安装：手动安装 Miniconda
+- 如果下载失败：检查网络连接和 URL 有效性
+- 如果显存不足：减小批量大小或启用 LoRA
+- 如果训练中断：使用 `--resume_from_checkpoint` 参数恢复
+
 ## 许可证
 
 本项目基于 MIT 许可证。数据集中的 Typst 代码遵循各自的原始许可证。
