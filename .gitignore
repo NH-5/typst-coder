@@ -1,5 +1,58 @@
-__pycache__
+# .gitignore for Typst Coder
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+*.manifest
+*.spec
+
+# 虚拟环境
+venv/
+env/
+ENV/
+.venv/
+
+# 训练输出
+outputs/
+*.ckpt
+*.bin
+
+# 模型文件
+model/
+!model/qwen3-0.6b
+
+# 数据文件
+data/
+
+
+# 临时文件
+*.tmp
+*.log
+*.pt
+*.pth
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 配置文件
+*.local.json
+
+# 项目文件
 .claude
-.vscode
-data
-model
+.mcp.json
+CLAUDE.md

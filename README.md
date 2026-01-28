@@ -1,252 +1,214 @@
-# Typst Coder LLM
+# Typst Coder
 
-基于 Qwen3-0.6B 微调的 Typst 代码生成语言模型。
-
-## 项目概述
-
-本项目旨在创建一个专门用于 Typst 排版语言的代码生成模型。通过在海量 Typst 代码数据上微调 Qwen3-0.6B 模型，使模型能够理解 Typst 语法并生成高质量的 Typst 代码。
-
-### 功能
-- Typst 代码自动补全
-- 从自然语言描述生成 Typst 代码
-- Typst 代码错误检查和建议
-- 代码片段生成
+本项目是一个基于 Qwen3-0.6B 微调的 Typst 代码生成语言模型。
 
 ## 项目结构
 
 ```
-.
-├── data/raw/              # 原始数据集
-│   ├── train.json        # 训练数据 (21,069 个样本)
-│   └── test.json         # 测试数据 (1,000 个样本)
-├── model/qwen3-0.6b/     # 基础模型 (Qwen3-0.6B)
-├── train.py              # 训练脚本
-├── run_training.sh       # 训练启动脚本
-├── requirements.txt      # Python 依赖
-├── PLAN.md              # 项目计划文档
-└── README.md            # 本文件
+typst-coder/
+├── CLAUDE.md              # 项目说明文档
+├── LICENSE                # MIT许可证
+├── README.md              # 本文档
+├── requirements.txt       # Python依赖
+├── .gitignore             # Git忽略配置
+│
+├── src/                   # 源码目录
+│   ├── __init__.py
+│   ├── config.py          # 配置文件
+│   │
+│   ├── data/              # 数据处理模块
+│   │   ├── __init__.py
+│   │   └── downloader.py  # 数据集下载和预处理
+│   │
+│   ├── model/             # 模型模块
+│   │   ├── __init__.py
+│   │   └── downloader.py  # 模型下载和加载
+│   │
+│   ├── training/          # 训练模块
+│   │   ├── __init__.py
+│   │   └── trainer.py     # 训练器实现
+│   │
+│   ├── inference/         # 推理模块
+│   │   ├── __init__.py
+│   │   └── generate.py    # 代码生成器
+│   │
+│   └── utils/             # 工具模块
+│       └── __init__.py
+│
+├── scripts/               # 脚本目录
+│   ├── download_data.py   # 下载数据脚本
+│   ├── download_model.py  # 下载模型脚本
+│   ├── train.py           # 训练脚本
+│   └── infer.py           # 推理脚本
+│
+├── data/                  # 数据目录
+│   ├── raw/               # 原始数据
+│   └── processed/         # 处理后数据
+│
+├── model/                 # 模型目录
+│   └── qwen3-0.6b/        # Qwen3-0.6B模型
+│
+├── outputs/               # 训练输出目录
+└── docs/                  # 文档目录
 ```
 
-## 环境配置
+## 模块结构图
 
-### 1. 创建 Conda 环境
+```mermaid
+flowchart TB
+    subgraph Scripts[脚本目录]
+        D1[download_data.py]
+        D2[download_model.py]
+        T[train.py]
+        I[infer.py]
+    end
+
+    subgraph Data[数据模块]
+        DD[DatasetDownloader]
+        DP[DatasetProcessor]
+    end
+
+    subgraph Model[模型模块]
+        MD[ModelDownloader]
+        MM[ModelManager]
+    end
+
+    subgraph Training[训练模块]
+        TT[TypstTrainer]
+    end
+
+    subgraph Inference[推理模块]
+        TG[TypstGenerator]
+    end
+
+    subgraph Config[配置]
+        CFG[config.py]
+    end
+
+    subgraph Utils[工具模块]
+        UT[utils.py]
+    end
+
+    Scripts --> Data
+    Scripts --> Training
+    Scripts --> Inference
+    Data --> Model
+    Training --> Model
+    Training --> CFG
+    Inference --> Model
+    Inference --> CFG
+    CFG --> Utils
+    Data --> Utils
+    Training --> Utils
+    Inference --> Utils
+```
+
+## 安装
+
 ```bash
+# 克隆项目
+git clone <your-repo-url>
+cd typst-coder
+
+# 创建虚拟环境
 conda create -n typst-coder python=3.14
 conda activate typst-coder
-```
 
-### 2. 安装依赖
-```bash
+# 安装依赖
 pip install -r requirements.txt
-```
-
-### 3. 验证环境
-```bash
-python -c "import torch; print(torch.cuda.is_available())"
 ```
 
 ## 数据准备
 
-数据集已预处理为 JSON 格式，每个样本包含：
-```json
-{
-  "repo": "GitHub 仓库 URL",
-  "file": "文件 URL",
-  "language": "typst",
-  "license": "许可证",
-  "content": "Typst 源代码"
-}
-```
+### 下载数据集
 
-数据集统计：
-- 训练集: 21,069 个有效样本
-- 测试集: 1,000 个有效样本
+训练数据来源: [HuggingFace TechxGenus/Typst](https://huggingface.co/datasets/TechxGenus)
 
-## 模型训练
-
-### 快速测试
 ```bash
-# 使用少量数据进行测试
-python train.py --output_dir ./test-output --debug_samples 100 --max_steps 5 --max_seq_length 512
+# 下载并处理数据
+python scripts/download_data.py
 ```
 
-### 完整训练
+### 手动下载链接
 
-#### 选项1：全参数微调
+- 训练集: https://huggingface.co/datasets/TechxGenus/Typst-Train/resolve/main/typst_train.json?download=true
+- 测试集: https://huggingface.co/datasets/TechxGenus/Typst-Test/resolve/main/typst_test.json?download=true
+
+## 模型准备
+
+### 下载预训练模型
+
 ```bash
-./run_training.sh
+# 下载 Qwen3-0.6B 模型
+python scripts/download_model.py
 ```
 
-#### 选项2：LoRA 微调 (节省显存)
-编辑 `run_training.sh`，取消注释 LoRA 相关设置：
+模型将保存在 `model/qwen3-0.6b/` 目录。
+
+## 训练
+
+### 基本训练
+
 ```bash
-# 在 run_training.sh 中启用：
-USE_LORA="--use_lora"
-LORA_R=8
-LORA_ALPHA=16
-LORA_DROPOUT=0.1
+python scripts/train.py
 ```
 
-然后运行：
+### 自定义参数
+
 ```bash
-./run_training.sh
+python scripts/train.py \
+    --epochs 3 \
+    --batch-size 4 \
+    --lr 1e-4
 ```
 
-#### 选项3：自定义训练
+### 使用配置文件
+
 ```bash
-python train.py \
-  --model_path ./model/qwen3-0.6b \
-  --train_file ./data/raw/train.json \
-  --eval_file ./data/raw/test.json \
-  --output_dir ./output \
-  --max_seq_length 2048 \
-  --num_train_epochs 3 \
-  --per_device_train_batch_size 2 \
-  --gradient_accumulation_steps 8 \
-  --learning_rate 5e-5 \
-  --warmup_steps 500 \
-  --fp16  # 或 --bf16，如果 GPU 支持
+python scripts/train.py --config config/training_config.json
 ```
 
-### 训练参数说明
+训练完成后，模型将保存在 `outputs/qwen3-0.6b-typst/` 目录。
 
-| 参数 | 默认值 | 说明 |
-|------|--------|------|
-| `--max_seq_length` | 2048 | 训练序列长度 |
-| `--num_train_epochs` | 3 | 训练轮数 |
-| `--per_device_train_batch_size` | 2 | 每设备批量大小 |
-| `--gradient_accumulation_steps` | 8 | 梯度累积步数 |
-| `--learning_rate` | 5e-5 | 学习率 |
-| `--warmup_steps` | 500 | 热身步数 |
-| `--fp16` / `--bf16` | 无 | 混合精度训练 |
-| `--use_lora` | 无 | 启用 LoRA 微调 |
-| `--lora_r` | 8 | LoRA 秩 |
-| `--lora_alpha` | 16 | LoRA alpha 参数 |
-| `--lora_dropout` | 0.1 | LoRA dropout |
+## 推理
 
-## 模型使用
+### 交互模式
 
-训练完成后，模型保存在 `output/` 目录中。可以使用 Transformers 库加载：
-
-```python
-from transformers import AutoTokenizer, AutoModelForCausalLM
-
-model_path = "./output"
-tokenizer = AutoTokenizer.from_pretrained(model_path)
-model = AutoModelForCausalLM.from_pretrained(model_path)
-
-# 生成示例
-prompt = "#set page(width: 8.5in, height: 11in)\n#let heading"
-inputs = tokenizer(prompt, return_tensors="pt")
-outputs = model.generate(**inputs, max_length=200)
-generated = tokenizer.decode(outputs[0], skip_special_tokens=True)
-print(generated)
-```
-
-## 性能优化建议
-
-### GPU 显存管理
-- RTX 4050 6GB：使用默认参数
-- 如果显存不足：
-  - 减小 `max_seq_length` (如 1024)
-  - 减小 `per_device_train_batch_size` (如 1)
-  - 增加 `gradient_accumulation_steps` 保持有效批量大小
-  - 启用 `--use_lora`
-  - 启用梯度检查点 (`--gradient_checkpointing`，需修改代码)
-
-### 训练速度
-- 使用混合精度 (`--fp16` 或 `--bf16`)
-- 增加 `preprocessing_num_workers` 加速数据预处理
-- 使用更长的序列长度可能提高效率
-
-## 常见问题
-
-### 1. FP16 训练错误
-错误信息：`ValueError: Attempting to unscale FP16 gradients.`
-解决方案：
-- 禁用 `--fp16`，使用纯 FP32 训练
-- 或使用 `--bf16` (如果 GPU 支持)
-- 或移除 `--fp16` 并让模型使用默认精度
-
-### 2. 显存不足
-- 启用 LoRA：`--use_lora`
-- 减小批量大小和序列长度
-- 启用梯度检查点 (需修改代码)
-
-### 3. 训练不稳定
-- 减小学习率
-- 增加热身步数
-- 使用梯度裁剪 (默认已启用)
-
-### 4. 数据加载问题
-- 确保 JSON 文件格式正确
-- 检查 `content` 字段是否非空
-- 使用 `--debug_samples` 测试数据加载
-
-## 评估指标
-
-训练过程中会记录以下指标：
-- 训练损失 (train_loss)
-- 评估损失 (eval_loss)
-- 学习率变化
-- 梯度范数
-
-在测试集上的困惑度 (perplexity) 可作为模型性能的主要指标。
-
-## 后续计划
-
-1. **模型评估**：开发 Typst 代码生成评估基准
-2. **指令微调**：收集指令-代码对数据，进行指令微调
-3. **编辑器集成**：开发 VSCode 插件
-4. **模型量化**：量化模型以便在 CPU 上运行
-
-## 服务器训练
-
-对于在远程服务器上进行训练的场景，项目提供了完整的自动化脚本。
-
-### 准备工作
-1. 将项目代码上传到服务器
-2. 确保服务器已安装 Miniconda/Anaconda
-3. 准备训练数据和测试数据的下载 URL
-
-### 配置训练
-编辑 `server_train.sh` 脚本，设置以下变量：
 ```bash
-TRAIN_URL=""  # 训练数据 URL (必需)
-TEST_URL=""   # 测试数据 URL (必需)
-MODEL_ID="Qwen/Qwen3-0.6B"  # Hugging Face 模型 ID
-OUTPUT_DIR="./output"        # 输出目录
-# 其他超参数根据需要调整
+python scripts/infer.py --demo
 ```
 
-### 运行训练
+### 单次生成
+
 ```bash
-# 使脚本可执行
-chmod +x server_train.sh download_resources.py
-
-# 运行训练
-./server_train.sh
+python scripts/infer.py \
+    --instruction "编写一个Typst函数来计算阶乘" \
+    --output result.typ
 ```
 
-### 脚本功能
-1. **环境配置**：自动创建/激活 Conda 环境
-2. **依赖安装**：安装所有 Python 包依赖
-3. **资源下载**：
-   - 从 Hugging Face 下载 Qwen3-0.6B 模型
-   - 从指定 URL 下载训练和测试数据
-4. **训练执行**：使用配置的超参数进行模型微调
+### 批量生成
 
-### 监控训练
-- 训练日志保存在 `output/logs/` 目录
-- 检查点保存在 `output/checkpoint-*/` 目录
-- 训练过程中会显示损失曲线和学习率变化
+```bash
+python scripts/infer.py --batch prompts.json --output results.json
+```
 
-### 故障排除
-- 如果 conda 未安装：手动安装 Miniconda
-- 如果下载失败：检查网络连接和 URL 有效性
-- 如果显存不足：减小批量大小或启用 LoRA
-- 如果训练中断：使用 `--resume_from_checkpoint` 参数恢复
+## 目录说明
+
+| 目录 | 说明 |
+|------|------|
+| `data/raw/` | 原始数据集（train.json, test.json） |
+| `data/processed/` | 处理后的数据集 |
+| `model/qwen3-0.6b/` | Qwen3-0.6B 预训练模型 |
+| `outputs/` | 训练输出目录 |
+| `src/` | 源代码目录 |
+| `scripts/` | 可执行脚本目录 |
 
 ## 许可证
 
-本项目基于 MIT 许可证。数据集中的 Typst 代码遵循各自的原始许可证。
+本项目采用 MIT 许可证开源。
+
+## 参考资料
+
+- [Qwen3](https://huggingface.co/Qwen/Qwen3-0.6B)
+- [PEFT](https://github.com/huggingface/peft)
+- [Typst](https://typst.app/)
