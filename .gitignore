@@ -30,7 +30,9 @@ model/
 !model/qwen3-0.6b
 
 # 数据文件
-data/
+data/raw
+data/processed
+.gitkeep
 
 
 # 临时文件
