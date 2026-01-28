@@ -26,8 +26,7 @@ outputs/
 *.bin
 
 # 模型文件
-model/
-!model/qwen3-0.6b
+model/qwen3-0.6b
 
 # 数据文件
 data/raw
