@@ -71,7 +71,6 @@ def DropDuplicate(
     """
 
     Data = Data.drop_duplicates() # 去除完全重复的行
-    Data = Data.drop_duplicates(subset=['repo']) # 去除来自同一个仓库的代码
 
     return Data
 
@@ -107,8 +106,8 @@ if __name__ == '__main__':
     CleanedTrainData, _ = clean(RawTrainData, CleanedData / 'train') # 训练集的清理
     CleanedTestData, _ = clean(RawTestData, CleanedData / 'test') # 测试集的清理
 
-    # CleanedTrainData.shape = (2580, 3)
-    # CleanedTestData.shape = (458, 3)
+    # CleanedTrainData.shape = (16416, 3)
+    # CleanedTestData.shape = (753, 3)
     # CleanData.columns = ['repo', 'language', 'content']
     print(CleanedTrainData.shape)
     print(CleanedTestData.shape)
