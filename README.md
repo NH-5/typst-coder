@@ -116,10 +116,8 @@ uv run python model_download.py
 默认输出目录：
 
 ```text
-model/qwen3.6-0.8b/
+model/qwen3.5-0.8b/
 ```
-
-说明：目录名当前写成了 `qwen3.6-0.8b`，但下载的模型仓库是 `Qwen3.5-0.8B-Base`。
 
 ## 数据流程
 
