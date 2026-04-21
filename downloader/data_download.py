@@ -13,5 +13,5 @@ hf_hub_download(
     repo_id='TechxGenus/Typst-Test',
     filename='typst_test.json',
     repo_type='dataset',
-    local_dir=PROJECT_PATH / '/data/raw/test/'
+    local_dir=PROJECT_PATH / 'data/raw/test/'
 )
