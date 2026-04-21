@@ -26,6 +26,7 @@ pyproject.toml
 outputs/
 *.ckpt
 *.bin
+output/
 
 # 模型文件
 model/
