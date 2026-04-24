@@ -10,6 +10,10 @@ import os
 import sys
 from pathlib import Path
 
+_omp_val = os.environ.get("OMP_NUM_THREADS", "")
+if _omp_val in ("", "0"):
+    os.environ["OMP_NUM_THREADS"] = "1"
+
 import torch
 from peft import PeftModel
 

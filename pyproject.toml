@@ -1,0 +1,16 @@
+[project]
+name = "typst-coder"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "accelerate>=1.0.0",
+    "datasets>=3.0.0",
+    "huggingface-hub>=0.26.0",
+    "peft>=0.13.0",
+    "torch>=2.4.0",
+    "torchvision>=0.19.0",
+    "tqdm>=4.66.0",
+    "transformers>=4.46.0",
+]
