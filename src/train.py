@@ -29,6 +29,7 @@ from transformers import (
 
 from src.utils import (
     get_device, get_device_str, supports_bf16, supports_qlora,
+    get_cuda_compute_capability, get_training_dtype,
     load_base_model, load_tokenizer, get_lora_config, clear_cache,
     PROCESSED_DIR,
 )
@@ -37,12 +38,9 @@ PROJECT_PATH = Path(__file__).parent.parent
 OUTPUT_DIR = PROJECT_PATH / "output"
 
 
-def build_training_args(args, device) -> TrainingArguments:
+def build_training_args(args, device, use_bf16: bool) -> TrainingArguments:
     """Build TrainingArguments with device-appropriate defaults."""
-    use_bf16 = supports_bf16() and not args.no_bf16
     use_cuda = device.type == "cuda"
-
-    # CUDA can use mixed precision via fp16/bf16 flags; MPS needs manual amp
     fp16 = use_cuda and not use_bf16
     bf16 = use_cuda and use_bf16
 
@@ -115,8 +113,17 @@ def main():
     if args.qlora and not supports_qlora():
         print("Warning: QLoRA requested but bitsandbytes not available. Falling back to LoRA.")
 
+    use_bf16 = supports_bf16() and not args.no_bf16
+    dtype = get_training_dtype()
+
     print(f"Device: {get_device_str()}")
-    print(f"QLoRA: {use_qlora}, bf16: {supports_bf16() and not args.no_bf16}")
+    if device.type == "cuda":
+        cc = get_cuda_compute_capability()
+        print(f"Compute capability: {cc[0]}.{cc[1]}")
+        if cc[0] == 7 and cc[1] == 0:
+            print("  V100 detected: bf16 is not supported on Volta (Ampere+ only). Using fp16.")
+            use_bf16 = False
+    print(f"QLoRA: {use_qlora}, bf16: {use_bf16}, dtype: {dtype}")
     print(f"PyTorch: {torch.__version__}, CUDA: {torch.cuda.is_available()}")
 
     os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -129,6 +136,21 @@ def main():
     lora_config = get_lora_config()
     peft_model = get_peft_model(model, lora_config)
     peft_model.print_trainable_parameters()
+
+    # CUDA health check: verify basic operations work before training
+    if device.type == "cuda":
+        try:
+            _ = torch.zeros(1, device=device) + torch.zeros(1, device=device)
+        except RuntimeError as e:
+            cc = get_cuda_compute_capability()
+            cc_str = f"{cc[0]}.{cc[1]}" if cc else "unknown"
+            raise RuntimeError(
+                f"CUDA kernel dispatch failed on GPU (CC {cc_str}).\n"
+                f"Your PyTorch build does not include kernels for this GPU.\n"
+                f"Try installing a compatible PyTorch, e.g.:\n"
+                f"  pip install torch --index-url https://download.pytorch.org/whl/cu124\n"
+                f"Or train on CPU: python -m src.train --device cpu"
+            ) from e
 
     # --- Data ---
     print("Loading processed dataset...")
@@ -147,7 +169,7 @@ def main():
 
     data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
 
-    training_args = build_training_args(args, device)
+    training_args = build_training_args(args, device, use_bf16)
 
     trainer = Trainer(
         model=peft_model,

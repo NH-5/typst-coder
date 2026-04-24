@@ -2,7 +2,7 @@
 Device-agnostic utilities for Typst-Coder training and inference.
 
 Handles device detection (CUDA > MPS > CPU), model loading with optional
-QLoRA quantization, and memory management across backends.
+QLoRA quantization, CUDA compute capability checks, and memory management.
 """
 
 import os
@@ -52,9 +52,26 @@ def get_device_str() -> str:
     return "cpu"
 
 
+def get_cuda_compute_capability() -> tuple[int, int] | None:
+    """Return (major, minor) compute capability of CUDA device, or None."""
+    if not torch.cuda.is_available():
+        return None
+    cc = torch.cuda.get_device_capability(0)
+    return cc  # (major, minor)
+
+
 def supports_bf16() -> bool:
-    """Check if bf16 mixed precision is supported."""
-    return torch.cuda.is_available() and torch.cuda.is_bf16_supported()
+    """Check if bf16 mixed precision is supported in hardware.
+
+    bf16 requires Ampere+ (compute capability >= 8.0).
+    V100 (CC 7.0) and T4 (CC 7.5) have NO bf16 tensor cores.
+    """
+    if not torch.cuda.is_available():
+        return False
+    cc = get_cuda_compute_capability()
+    if cc is None:
+        return False
+    return cc[0] >= 8
 
 
 def supports_qlora() -> bool:
@@ -68,23 +85,21 @@ def supports_qlora() -> bool:
         return False
 
 
+def get_training_dtype() -> torch.dtype:
+    """Return the best dtype for training on the current device."""
+    if supports_bf16():
+        return torch.bfloat16
+    if torch.cuda.is_available():
+        return torch.float16
+    return torch.float16
+
+
 def clear_cache():
     """Clear GPU cache for the current device."""
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
     elif torch.backends.mps.is_available():
         torch.mps.empty_cache()
-
-
-def get_amp_context():
-    """Return the appropriate autocast context for the current device."""
-    if torch.cuda.is_available() and supports_bf16():
-        return lambda: torch.autocast("cuda", dtype=torch.bfloat16)
-    if torch.cuda.is_available():
-        return lambda: torch.autocast("cuda", dtype=torch.float16)
-    if torch.backends.mps.is_available():
-        return lambda: torch.autocast("mps", dtype=torch.float16)
-    return lambda: torch.no_grad()
 
 
 def load_tokenizer():
@@ -98,6 +113,9 @@ def load_tokenizer():
 def load_base_model(device: torch.device | None = None, use_qlora: bool = False):
     """Load the base Qwen3.5-0.8B model, optionally quantized.
 
+    Loads to CPU first then moves to target device to avoid CUDA kernel
+    dispatch errors on GPUs whose compute capability isn't in the PyTorch build.
+
     Args:
         device: Target device. Auto-detected if None.
         use_qlora: Use 4-bit NF4 quantization (CUDA only).
@@ -110,7 +128,8 @@ def load_base_model(device: torch.device | None = None, use_qlora: bool = False)
 
     tokenizer = load_tokenizer()
 
-    model_kwargs = {
+    dtype = get_training_dtype()
+    model_kwargs: dict = {
         "trust_remote_code": True,
     }
 
@@ -118,21 +137,29 @@ def load_base_model(device: torch.device | None = None, use_qlora: bool = False)
         from transformers import BitsAndBytesConfig
         bnb_config = BitsAndBytesConfig(
             load_in_4bit=True,
-            bnb_4bit_compute_dtype=torch.bfloat16 if supports_bf16() else torch.float16,
+            bnb_4bit_compute_dtype=dtype,
             bnb_4bit_quant_type="nf4",
             bnb_4bit_use_double_quant=True,
         )
         model_kwargs["quantization_config"] = bnb_config
-        print("Using QLoRA (4-bit NF4 quantization)")
+        print(f"Using QLoRA (4-bit NF4, compute_dtype={dtype})")
     elif device.type == "cuda":
-        model_kwargs["dtype"] = torch.bfloat16 if supports_bf16() else torch.float16
+        model_kwargs["dtype"] = dtype
+        print(f"Model dtype: {dtype}")
     else:
         model_kwargs["dtype"] = torch.float16
 
     print(f"Loading model from {MODEL_PATH}...")
+
+    # Load to CPU first, then move to device.
+    # This avoids torch.AcceleratorError on GPUs whose compute capability
+    # is not in the current PyTorch build's pre-compiled kernels.
+    model_kwargs["device_map"] = "cpu"
+
     model = AutoModelForCausalLM.from_pretrained(str(MODEL_PATH), **model_kwargs)
 
     if not use_qlora:
+        print(f"Moving model to {device}...")
         model.to(device)
 
     return model, tokenizer
