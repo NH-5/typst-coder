@@ -30,7 +30,7 @@ from peft import get_peft_model
 from transformers import (
     Trainer,
     TrainingArguments,
-    DataCollatorForLanguageModeling,
+    DataCollatorForSeq2Seq,
 )
 
 from src.utils import (
@@ -90,9 +90,9 @@ def main():
     parser.add_argument("--no-bf16", action="store_true",
                         help="Disable bf16 even if supported")
     parser.add_argument("--batch-size", type=int, default=1,
-                        help="Per-device batch size (default: 1)")
-    parser.add_argument("--grad-accum", type=int, default=8,
-                        help="Gradient accumulation steps (default: 8)")
+                        help="Per-device batch size (default: 4)")
+    parser.add_argument("--grad-accum", type=int, default=2,
+                        help="Gradient accumulation steps (default: 2)")
     parser.add_argument("--lr", type=float, default=2e-4,
                         help="Learning rate (default: 2e-4)")
     parser.add_argument("--epochs", type=int, default=3,
@@ -173,7 +173,12 @@ def main():
     print(f"Train: {len(dataset['train'])}, Test: {len(dataset['test'])}")
     print(f"Effective batch size: {eff_batch}, Steps/epoch: ~{steps_per_epoch}")
 
-    data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
+    data_collator = DataCollatorForSeq2Seq(
+        tokenizer=tokenizer,
+        padding=True,
+        label_pad_token_id=-100,
+        return_tensors="pt",
+    )
 
     training_args = build_training_args(args, device, use_bf16)
 
